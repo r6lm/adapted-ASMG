@@ -58,7 +58,7 @@ print(len(df))  # 6840091
 df.to_csv('../datasets/ml_5yr_2014_2018_30seq.csv', index=False)
 
 # create movie meta df
-meta_df = pd.read_csv('/Users/ali-226125n/PycharmProjects/raw_datasets/ml-25m/movies.csv')
+meta_df =  pd.read_csv('../raw_data/ml-25m/movies.csv')
 genres = meta_df['genres'].tolist()  # 62423
 genre_ls = []
 for genre in genres:
