@@ -30,7 +30,7 @@ cates, cate_lens = process_cate(cate_ls)
 
 train_config = {'method': 'ASMGgru_full_by_period',
                 'dir_name': 'ASMGgru_full_linear_train11-23_test24-30_4emb_4mlp_1epoch',  # edit method to compute loss weight, train test period, rnn hidden size for emb and mlp, number of epochs
-                'niu_dir_name': 'NIU_train11-23_test24-30_1epoch_0.001',  # input model sequence directory
+                'niu_dir_name': 'IU_train11-23_test24-30_1epoch_0.001',  # input model sequence directory
                 'start_date': 20140101,  # overall train start date
                 'end_date': 20181231,  # overall train end date
                 'num_periods': 31,  # number of periods divided into
