@@ -1,5 +1,7 @@
 import pandas as pd
 import glob
+from sklearn.metrics import roc_auc_score
+import json
 
 
 class BatchLoader:
@@ -25,36 +27,45 @@ class BatchLoader:
         return [users, items, labels]
 
 
-def cal_roc_auc(scores, labels):
+def cal_roc_auc(scores, labels, implementation="asmg"):
 
-    arr = sorted(zip(scores, labels), key=lambda d: d[0], reverse=True)
-    pos, neg = 0., 0.
-    for record in arr:
-        if record[1] == 1.:
-            pos += 1
-        else:
-            neg += 1
+    if implementation ==  "asmg":
+        arr = sorted(zip(scores, labels), key=lambda d: d[0], reverse=True)
+        pos, neg = 0., 0.
+        for record in arr:
+            if record[1] == 1.:
+                pos += 1
+            else:
+                neg += 1
 
-    if pos == 0 or neg == 0:
-        return None
+        if pos == 0 or neg == 0:
+            return None
 
-    fp, tp = 0., 0.
-    xy_arr = []
-    for record in arr:
-        if record[1] == 1.:
-            tp += 1
-        else:
-            fp += 1
-        xy_arr.append([fp/neg, tp/pos])
+        fp, tp = 0., 0.
+        xy_arr = []
+        for record in arr:
+            if record[1] == 1.:
+                tp += 1
+            else:
+                fp += 1
+            xy_arr.append([fp/neg, tp/pos])
 
-    auc = 0.
-    prev_x = 0.
-    prev_y = 0.
-    for x, y in xy_arr:
-        auc += ((x - prev_x) * (y + prev_y) / 2.)
-        prev_x = x
-        prev_y = y
-    return auc
+        auc = 0.
+        prev_x = 0.
+        prev_y = 0.
+        for x, y in xy_arr:
+            auc += ((x - prev_x) * (y + prev_y) / 2.)
+            prev_x = x
+            prev_y = y
+        return auc
+
+    elif implementation ==  "scikit-learn":
+
+        return roc_auc_score(labels, scores)
+
+    else:
+        raise NotImplementedError
+
 
 
 def cal_roc_gauc(users, scores, labels):
@@ -100,3 +111,30 @@ def search_ckpt(search_alias, mode='last'):
     ckpt = ckpt.split('.ckpt')[0]  # get the path name before .ckpt
     ckpt = ckpt + '.ckpt'  # get the path with .ckpt
     return ckpt
+
+
+def append_json_array(d:dict, path, array_key="results"):
+
+    # create file if it does not exist
+    try:
+        with open(path, "r+") as file:
+            pass
+    except FileNotFoundError:
+        with open(path, "w") as file:
+            pass
+    
+    # now that it exists append a new object on array 
+    with open(path, "r+") as file:
+        # if file is empty create a new dictionary
+        try:
+            json_dict = json.load(file)
+        except JSONDecodeError:
+            json_dict = {array_key: []}
+        
+        json_dict[array_key].append(d)
+        
+        # set file writing pointer at the beginning (offset 0)
+        file.seek(0)
+        json.dump(json_dict, file, indent=4, sort_keys=True)
+    
+    # except FileNotFoundError:

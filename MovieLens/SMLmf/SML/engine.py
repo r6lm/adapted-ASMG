@@ -1,5 +1,6 @@
 import time
 from utils import *
+import numpy as np
 
 
 class Engine(object):
@@ -81,7 +82,7 @@ class Engine(object):
 
         return transfer_loss_next_avg
 
-    def test(self, test_set, train_config):
+    def test(self, test_set, train_config, predictions_path=None, auc_implementation="asmg"):
 
         test_batch_loader = BatchLoader(test_set, train_config['base_bs'])
 
@@ -93,7 +94,10 @@ class Engine(object):
             losses.extend(batch_losses.tolist())
             labels.extend(test_batch[2])
 
-        test_auc = cal_roc_auc(scores, labels)
+        test_auc = cal_roc_auc(scores, labels, implementation=auc_implementation)
         test_logloss = sum(losses) / len(losses)
+
+        if predictions_path is not None:
+            np.save(predictions_path, np.array(scores))
 
         return test_auc, test_logloss

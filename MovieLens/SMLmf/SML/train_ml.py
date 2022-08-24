@@ -5,9 +5,23 @@ import numpy as np
 from engine import *
 from model import *
 from utils import *
+import argparse
 
-np.random.seed(1234)
-tf.set_random_seed(123)
+# parameters to tune on Eddie
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--seed", default="6202", help="random seed for reproducibility")
+
+# parsed_args = parser.parse_args([])
+parsed_args = parser.parse_args()
+parsed_args
+
+# global control flow
+fast_dev_run = False
+
+
+np.random.seed(int(parsed_args.seed))
+tf.set_random_seed(int(parsed_args.seed))
 
 # load data to df
 start_time = time.time()
@@ -35,6 +49,7 @@ train_config = {'method': 'SMLmf_by_period',
                 'restored_ckpt_mode': 'best auc',  # mode to search the ckpt to restore: 'best auc', 'best logloss', 'last'
                 'restored_ckpt': None,  # restored sml model checkpoint
 
+                # transfer architecture
                 'n1': 10,
                 'n2': 5,
                 'l1': 20,
@@ -51,6 +66,12 @@ train_config = {'method': 'SMLmf_by_period',
                 'base_num_epochs': 1,  # base model number of epochs
                 'shuffle': True,  # whether to shuffle the dataset for each epoch
                 }
+
+if fast_dev_run:
+    train_config.update(dict(
+        train_start_period=29,
+        test_start_period=29
+    ))
 
 MF_hyperparams = {'num_users': num_users,
                   'num_items': num_items,
@@ -113,7 +134,14 @@ def train_base():
             base_loss_cur_avg))
 
         cur_auc, cur_logloss = engine.test(cur_set, train_config)
-        next_auc, next_logloss = engine.test(next_set, train_config)
+
+        # save predictions
+        if i >= train_config['test_start_period']:
+            next_auc, next_logloss = engine.test(next_set, train_config, predictions_path=os.path.join(
+                preds_dir, f"preds-s{parsed_args.seed}.npy"
+            ), auc_implementation="scikit-learn")
+        else:
+            next_auc, next_logloss = engine.test(next_set, train_config)
         print('cur_auc {:.4f}, cur_logloss {:.4f}, next_auc {:.4f}, next_logloss {:.4f}'.format(
             cur_auc,
             cur_logloss,
@@ -125,7 +153,8 @@ def train_base():
 
         # save checkpoint
         if i >= train_config['test_start_period'] and train_config['test_stop_train']:
-            checkpoint_alias = 'Epoch{}_TestAUC{:.4f}_TestLOGLOSS{:.4f}.ckpt'.format(
+            checkpoint_alias = 'Seed{}_Epoch{}_TestAUC{:.4f}_TestLOGLOSS{:.4f}.ckpt'.format(
+                parsed_args.seed,
                 epoch_id,
                 next_auc,
                 next_logloss)
@@ -173,7 +202,8 @@ def train_transfer():
         sml_model.update(sess)
 
         # save checkpoint
-        checkpoint_alias = 'Epoch{}_TestAUC{:.4f}_TestLOGLOSS{:.4f}.ckpt'.format(
+        checkpoint_alias = 'Seed{}_Epoch{}_TestAUC{:.4f}_TestLOGLOSS{:.4f}.ckpt'.format(
+            parsed_args.seed,
             epoch_id,
             next_auc,
             next_logloss)
@@ -224,12 +254,17 @@ for transfer_lr in [1e-2]:
             if not os.path.exists(ckpts_dir):
                 os.makedirs(ckpts_dir)
 
+            # predictions directory
+            preds_dir = os.path.join('preds', "T" + str(i + 1))
+            if not os.path.exists(preds_dir):
+                os.makedirs(preds_dir)
+
             if i == train_config['train_start_period']:
                 search_alias = os.path.join('../pretrain/ckpts', train_config['pretrain_model'], 'Epoch*')
                 train_config['restored_ckpt'] = search_ckpt(search_alias, mode=train_config['restored_ckpt_mode'])
             else:
                 prev_period_alias = 'period' + str(i - 1)
-                search_alias = os.path.join('ckpts', train_config['dir_name'], prev_period_alias, 'Epoch*')
+                search_alias = os.path.join('ckpts', train_config['dir_name'], prev_period_alias, 'Seed*')
                 train_config['restored_ckpt'] = search_ckpt(search_alias, mode=train_config['restored_ckpt_mode'])
             print('restored checkpoint: {}'.format(train_config['restored_ckpt']))
 
@@ -276,8 +311,20 @@ for transfer_lr in [1e-2]:
                 print('average logloss', average_logloss)
 
                 # write metrics to text file
-                with open(os.path.join(ckpts_dir, 'test_metrics.txt'), mode='w') as f:
+                with open(os.path.join(ckpts_dir, 'test_metrics.txt'), mode='a') as f:
+                    f.write('seed: ' + str(parsed_args.seed) + '\n')
                     f.write('test_aucs: ' + str(test_aucs) + '\n')
                     f.write('average_auc: ' + str(average_auc) + '\n')
                     f.write('test_loglosses: ' + str(test_loglosses) + '\n')
                     f.write('average_logloss: ' + str(average_logloss) + '\n')
+
+                append_json_array(dict(
+                    seed=parsed_args.seed,
+                    test_aucs=test_aucs,
+                    auc=average_auc,
+                    test_loglosses=test_loglosses,
+                    loss=average_logloss,
+                ), os.path.join(ckpts_dir, 'test_metrics.json'))
+
+
+print('Total experiment time: {}'.format(time.strftime('%H:%M:%S', time.gmtime(time.time() - start_time))))
