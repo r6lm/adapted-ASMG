@@ -5,9 +5,21 @@ import numpy as np
 from engine import *
 from model import *
 from utils import *
+import argparse
 
-np.random.seed(1234)
-tf.set_random_seed(123)
+
+# parameters to tune on Eddie
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--seed", default="6202", help="random seed for reproducibility")
+
+# parsed_args = parser.parse_args([])
+parsed_args = parser.parse_args()
+parsed_args
+
+# ensure reproducibility
+np.random.seed(int(parsed_args.seed))
+tf.set_random_seed(int(parsed_args.seed))
 
 # load data to df
 start_time = time.time()
@@ -20,7 +32,9 @@ num_users = data_df['userId'].max() + 1
 num_items = data_df['itemId'].max() + 1
 
 train_config = {'method': 'pretrain',
-                'dir_name': 'pretrain_train1-10_test11_10epoch',  # edit train test period range, number of epochs
+                'dir_name': 'S{}_pretrain_train1-10_test11_10epoch'.format(
+                    parsed_args.seed
+                ),  # edit train test period range, number of epochs
                 'start_date': 20140101,  # overall train start date
                 'end_date': 20181231,  # overall train end date
                 'num_periods': 31,  # number of periods divided into

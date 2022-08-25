@@ -35,7 +35,9 @@ num_items = data_df['itemId'].max() + 1
 
 train_config = {'method': 'SMLmf_by_period',
                 'dir_name': 'SMLmf_train11-23_test24-30_1epoch_1epoch',  # edit train test period, transfer number of epochs, base number of epochs
-                'pretrain_model': 'pretrain_train1-10_test11_10epoch_0.01',  # pretrained base model
+                'pretrain_model': 'S{}_pretrain_train1-10_test11_10epoch_0.01'.format(
+                    parsed_args.seed
+                ),  # pretrained base model
                 'start_date': 20140101,  # overall train start date
                 'end_date': 20181231,  # overall train end date
                 'num_periods': 31,  # number of periods divided into

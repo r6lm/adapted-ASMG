@@ -2,6 +2,7 @@ import pandas as pd
 import glob
 from sklearn.metrics import roc_auc_score
 import json
+from json import JSONDecodeError
 
 
 class BatchLoader:
